@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <http:listener-config name="api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="api-config" api="resource::9b19af13-9646-4d87-83a1-7dfd2965a5de:s-productcursos-api:1.0.1:raml:zip:api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <configuration-properties doc:name="Configuration properties" doc:id="2aa28985-3316-4e9d-8592-22753bb63842" file="config/configuration.yaml" />
+    <db:config name="curso_Database_Configuration" doc:name="Database Config" doc:id="7bbeb91a-14df-45a4-bff3-230df0b697a3">
+        <db:my-sql-connection host="${mysql.host}" port="${mysql.port}" user="${mysql.user}" password="${mysql.password}" database="${mysql.database}" />
+    </db:config>
+    <flow name="api-main">
+        <http:listener config-ref="api-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND, VALIDATION:EMPTY_COLLECTION" enableNotifications="true" logException="true">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="api-console">
+        <http:listener config-ref="api-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\cursos:api-config">
+        <db:select doc:name="Get Products" doc:id="48bdcd11-23aa-4b99-ab4d-b38ef5490d4f" config-ref="curso_Database_Configuration">
+            <db:sql><![CDATA[SELECT c.ID, c.Nombre, c.Precio, c.Carrera_Relacionada
+FROM curso c]]></db:sql>
+        </db:select>
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( curso, index ) -> {
+	precio: curso.Precio,
+	id: curso.ID,
+	nombre: curso.Nombre
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\cursos\(carrera_relacionada):api-config">
+        <db:select doc:name="Get Curso por Carrera_Relacionada" doc:id="c39389be-59de-4e74-a3e6-dcc2df4cbe9a" config-ref="curso_Database_Configuration">
+            <db:sql><![CDATA[SELECT c.ID, c.Nombre, c.Precio, c.Carrera_Relacionada
+FROM curso c
+WHERE c.Carrera_Relacionada = :Carrera_Relacionada
+]]></db:sql>
+            <db:input-parameters><![CDATA[#[%dw 2.0 
+output application/json
+---
+{
+	Carrera_Relacionada: attributes.uriParams.carrera_relacionada as String
+}]]]></db:input-parameters>
+        </db:select>
+        <validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="088505d0-ca94-4930-a2b4-b8dfa02ad9d6" />
+        <ee:transform doc:name="Transform Message" doc:id="ff0fbc1c-4930-4046-8100-8b74b66e3900">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	precio: payload01.Precio,
+	id: payload01.ID,
+	nombre: payload01.Nombre
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="post:\cursos:application\json:api-config">
+        <db:insert doc:name="Insert Curso" doc:id="c0f945e6-14d7-482e-b257-81e6e59d4c4b" config-ref="curso_Database_Configuration" autoGenerateKeys="true" target="generated_key" targetValue="#[payload.generatedKeys.GENERATED_KEY]">
+            <db:sql><![CDATA[INSERT INTO curso(Nombre, Precio, Carrera_Relacionada)
+VALUES(:Nombre, :Precio, :Carrera_Relacionada);]]></db:sql>
+            <db:input-parameters><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	Precio: payload.precio,
+	Nombre: payload.nombre,
+	Carrera_Relacionada: payload.carrera_relacionada
+}]]]></db:input-parameters>
+            <db:auto-generated-keys-column-names>
+                <db:auto-generated-keys-column-name value="ID" />
+            </db:auto-generated-keys-column-names>
+        </db:insert>
+        <ee:transform doc:name="Transform Message" doc:id="f1f407ad-6237-41d8-b829-534bcfb334a7">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+
+payload ++
+ID: vars.generated_key]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <tracking:custom-event doc:name="New Evento Curso Creado" doc:id="4f4e7b9a-5a61-4374-82eb-b55d4e24f49e" event-name="New Evento Curso Creado">
+            <tracking:meta-data key="Nombre de Curso" value="#[payload.Nombre]" />
+            <tracking:meta-data key="Curso ID" value="#[payload.ID]" />
+        </tracking:custom-event>
+    </flow>
+</mule>

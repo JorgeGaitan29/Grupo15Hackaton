@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:p-creaciondecursos-api="http://www.mulesoft.org/schema/mule/p-creaciondecursos-api" xmlns:p-gestionclientes="http://www.mulesoft.org/schema/mule/p-gestionclientes" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/p-gestionclientes http://www.mulesoft.org/schema/mule/p-gestionclientes/current/mule-p-gestionclientes.xsd
+http://www.mulesoft.org/schema/mule/p-creaciondecursos-api http://www.mulesoft.org/schema/mule/p-creaciondecursos-api/current/mule-p-creaciondecursos-api.xsd">
+    <http:listener-config name="e-capaexp-api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="e-capaexp-api-config" api="resource::0e78b48b-ec5c-4076-aa46-5931d03dec88:e-capaexp-api:1.0.1:raml:zip:e-capaexp-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <p-gestionclientes:config name="P_gestionclientes_Config" doc:name="P-gestionclientes Config" doc:id="ee0a1c16-a925-4dd0-ad31-468ffbd54304" property_host="p-gestionclientes-api.us-e2.cloudhub.io" property_basePath="/api" property_protocol="HTTPS" property_port="443"/>
+	<p-creaciondecursos-api:config name="P_creaciondecursos_api_Config" doc:name="P-creaciondecursos-api Config" doc:id="132a5917-853e-4fe8-8f2a-a2307dd85ed8" property_host="p-creaciondecursos-api.us-e2.cloudhub.io" property_port="443" property_basePath="/api" property_protocol="HTTPS" />
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="7ffb8ac6-24b1-4a7c-864e-1b78e93d8fcf" basePath="${clientes.basePath}" >
+		<http:request-connection host="${clientes.host}"/>
+	</http:request-config>
+	<http:request-config name="HTTP_Request_configuration_POSTCursos" doc:name="HTTP Request configuration" doc:id="ab417689-5e72-442f-bc59-3e8f7ba581e4" basePath="${creacioncursos.basePath}">
+		<http:request-connection host="${creacioncursos.host}"/>
+	</http:request-config>
+	<http:request-config name="HTTP_Request_configurationGestionCompras_Pago" doc:name="HTTP Request configuration" doc:id="aec9cbb6-ceb0-4279-a332-5cc0972c1db6" basePath="${compras.basePath}" >
+		<http:request-connection host="${compras.host}" />
+	</http:request-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="6e230e03-5221-42d8-9c68-bbb08b9c4c5b" file="configuration\config.yaml" />
+	<flow name="e-capaexp-api-main">
+        <http:listener config-ref="e-capaexp-api-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="e-capaexp-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="e-capaexp-api-console">
+        <http:listener config-ref="e-capaexp-api-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="e-capaexp-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\cursos:e-capaexp-api-config">
+		<http:request method="GET" doc:name="Request" doc:id="3e2f9255-4a2f-401f-aac5-9314601f514e" config-ref="HTTP_Request_configurationGestionCompras_Pago" path="/cursos"/>
+    </flow>
+    <flow name="get:\usuarios:e-capaexp-api-config">
+        <http:request method="GET" doc:name="Request" doc:id="8211af9a-44a2-4061-8904-088103545622" config-ref="HTTP_Request_configuration" path="/usuarios"/>
+    </flow>
+    <flow name="get:\cursos\(carrera_relacionada):e-capaexp-api-config">
+		<http:request method="GET" doc:name="Request" doc:id="3f5c9239-66d0-442b-b110-d4dcdb5dddd5" config-ref="HTTP_Request_configurationGestionCompras_Pago" path="/cursos/{carrera_relacionada}">
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"carrera_relacionada" : attributes.uriParams.'carrera_relacionada'
+}]]]></http:uri-params>
+		</http:request>
+    </flow>
+    <flow name="get:\usuarios\(nombre):e-capaexp-api-config">
+		<http:request method="GET" doc:name="Request" doc:id="6b0fa234-ab99-41f2-982c-470562d9b584" config-ref="HTTP_Request_configuration" path="/usuarios/{nombre}">
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"nombre" : attributes.uriParams.'nombre'
+}]]]></http:uri-params>
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"Key" : "Value"
+}]]]></http:query-params>
+		</http:request>
+    </flow>
+    <flow name="post:\lambda:e-capaexp-api-config">
+		<http:request method="POST" doc:name="Request" doc:id="928216b6-a25a-4b46-adb5-99bbf7f50549" config-ref="HTTP_Request_configuration" path="/lambda"/>
+    </flow>
+    <flow name="post:\cursos:application\json:e-capaexp-api-config">
+		<http:request method="POST" doc:name="Request" doc:id="0f5da919-186d-4e7b-b687-9dfa44cf92c4" config-ref="HTTP_Request_configuration_POSTCursos" path="/cursos"/>
+    </flow>
+	<flow name="post:\pago:application\json:e-capaexp-api-config">
+        <http:request method="POST" doc:name="Request" doc:id="ed36e0d0-500a-4065-b1e8-f607f6659dd0" config-ref="HTTP_Request_configurationGestionCompras_Pago" path="/pago"/>
+    </flow>
+    <flow name="post:\usuarios:application\json:e-capaexp-api-config">
+		<http:request method="POST" doc:name="Request" doc:id="4b34f407-9d36-4790-a180-4a80a64f12c2" config-ref="HTTP_Request_configuration" path="/usuarios" />
+		<ee:transform doc:name="Transform Message" doc:id="31298a8a-6e58-4b61-8ad3-a8c96faf25b8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Usuario creado correctamente. A la espera de verificación por correo"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+    </flow>
+</mule>

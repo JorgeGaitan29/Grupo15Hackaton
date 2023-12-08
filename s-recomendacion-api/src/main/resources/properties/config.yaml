@@ -1,0 +1,5 @@
+cl:
+  host: "pljdhgin3m.execute-api.us-east-1.amazonaws.com"
+  path: "/recomendation-function"
+  port: "443"
+  basePath: "/dev"

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:s-recomendacion-api="http://www.mulesoft.org/schema/mule/s-recomendacion-api" xmlns:s-usuariossalesforce="http://www.mulesoft.org/schema/mule/s-usuariossalesforce" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/s-recomendacion-api http://www.mulesoft.org/schema/mule/s-recomendacion-api/current/mule-s-recomendacion-api.xsd http://www.mulesoft.org/schema/mule/s-usuariossalesforce http://www.mulesoft.org/schema/mule/s-usuariossalesforce/current/mule-s-usuariossalesforce.xsd">
+    <http:listener-config name="p-gestionclientes-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="p-gestionclientes-config" api="resource::0e78b48b-ec5c-4076-aa46-5931d03dec88:p-gestionclientes:1.0.3:raml:zip:p-gestionclientes.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <s-recomendacion-api:config name="S_recomendacion_api_Config" doc:name="S-recomendacion-api Config" doc:id="d696c06e-507b-421c-ba6a-0cf04dd95b92" property_host="s-recomendacion-api.us-e2.cloudhub.io" property_basePath="/api" />
+    <s-usuariossalesforce:config name="S_usuariossalesforce_Config" doc:name="S-usuariossalesforce Config" doc:id="af93947e-ebb3-427f-a52f-024d578b3e0f" property_host="${usuarios.host}" property_port="${usuarios.port}" property_basePath="${usuarios.basePath}" property_protocol="${usuarios.protocol}" />
+    <http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="6cdc18cb-614e-43e1-b0c7-ab5016744dc9" basePath="/api">
+        <http:request-connection host="${lambda.host}" port="${lambda.port}" connectionIdleTimeout="450000" />
+    </http:request-config>
+    <http:request-config name="HTTP_Request_configuration_POSTUsers" doc:name="HTTP Request configuration" doc:id="03601a74-8d8c-4030-a97e-f2fc79928cd2">
+        <http:request-connection protocol="HTTPS" host="${usuarios.host}" port="${usuarios.port}" >
+		</http:request-connection>
+    </http:request-config>
+    <http:request-config name="HTTP_Request_configuration1" doc:name="HTTP Request configuration" doc:id="a5e81419-80db-4c36-b976-77b24fc5ca40" basePath="/api">
+        <http:request-connection host="s-usuariossalesforce-api-4nw6zl.5sc6y6-4.usa-e2.cloudhub.io" protocol="HTTPS" />
+    </http:request-config>
+    <configuration-properties doc:name="Configuration properties" doc:id="d67c9250-e690-4b73-a89a-c15cb2037ff7" file="configuration\config.yaml" />
+	<flow name="p-gestionclientes-main">
+        <http:listener config-ref="p-gestionclientes-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="p-gestionclientes-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="p-gestionclientes-console">
+        <http:listener config-ref="p-gestionclientes-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="p-gestionclientes-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\usuarios:p-gestionclientes-config">
+        <s-usuariossalesforce:get-usuarios doc:name="get usuarios" doc:id="bb722daa-454b-46e9-ba15-f83af33dd62f" config-ref="S_usuariossalesforce_Config" />
+    </flow>
+    <flow name="get:\usuarios\(nombre):p-gestionclientes-config">
+        <s-usuariossalesforce:usuarios-con-el-mismo-nombre doc:name="Usuarios con el mismo nombre" doc:id="938b30fc-0ba3-49c0-81ab-85fa96aa96b7" config-ref="S_usuariossalesforce_Config" nombre="#[attributes.uriParams.nombre]" />
+    </flow>
+    <flow name="post:\usuarios:application\json:p-gestionclientes-config">
+        <http:request method="POST" doc:name="Request" doc:id="697b6e5b-906d-42bf-9e39-740e12952773" config-ref="HTTP_Request_configuration_POSTUsers" url="https://s-usuariossalesforce-api-4nw6zl.5sc6y6-4.usa-e2.cloudhub.io/api/usuarios" />
+    </flow>
+    <flow name="post:\lambda:p-gestionclientes-config">
+        <http:request method="POST" doc:name="Request" doc:id="171370c3-ee1f-4649-9902-7dc4e8836529" config-ref="HTTP_Request_configuration" url="http://s-recomendacion-api.us-e2.cloudhub.io/api/lambda" />
+    </flow>
+</mule>

@@ -1,0 +1,11 @@
+compras:
+  host: "p-gestioncompras-api.us-e2.cloudhub.io"
+  basePath: "/api"
+  
+clientes:
+  host: "p-gestionclientes-api.us-e2.cloudhub.io"
+  basePath: "/api"
+  
+creacioncursos:
+  host: "p-creaciondecursos-api.us-e2.cloudhub.io"
+  basePath: "/api"

@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--suppress HtmlUnknownTag -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <packaging>mule-extension</packaging>
+
+    <name>Amazon Lambda Connector - Mule 4</name>
+    <description>The AWS Lambda connector allows you to perform several operations and invoke functions on the AWS Lambda service using your or temporary credentials.</description>
+    <parent>
+        <groupId>org.mule.extensions</groupId>
+        <artifactId>mule-modules-parent</artifactId>
+        <version>1.2.0</version>
+    </parent>
+
+    <groupId>com.mulesoft.connectors</groupId>
+    <artifactId>mule4-amazon-lambda-connector</artifactId>
+    <version>1.0.7</version>
+
+    <properties>
+        <mule.version>4.2.1</mule.version>
+        <mule.api.version>1.2.1</mule.api.version>
+        <mule.sdk.version>1.2.1</mule.sdk.version>
+        <muleSdkApiVersion>0.1.0</muleSdkApiVersion>
+        <log4j.version>2.17.1</log4j.version>
+        <json.version>20231013</json.version>
+        <muleExtensionsShadeVersion>1.0.1</muleExtensionsShadeVersion>
+        <shadePackage>amazonlambdaconnector</shadePackage>
+
+        <mule.extensions.maven.plugin.version>1.2.2</mule.extensions.maven.plugin.version>
+        <mule.app.plugins.maven.plugin.version>1.2.1</mule.app.plugins.maven.plugin.version>
+        <rest.sdk.commons.version>0.1.5</rest.sdk.commons.version>
+
+        <!-- Remove when a new parent version with MTF is available -->
+        <munit.input.directory>src/test/munit</munit.input.directory>
+        <munit.output.directory>${basedir}/target/test-mule/munit</munit.output.directory>
+        <munit.extensions.maven.plugin.version>1.0.0</munit.extensions.maven.plugin.version>
+        <munit.version>2.2.5</munit.version>
+        <mtf.tools.version>1.0.0</mtf.tools.version>
+        <mavenResources.version>3.0.2</mavenResources.version>
+        <!-- End of remove -->
+
+        <!-- SonarQube integration -->
+        <jacoco.version>0.8.6</jacoco.version>
+        <!-- End of SonarQube integration -->
+
+        <validations.module.version>2.0.2</validations.module.version>
+        <java.module.version>1.2.10</java.module.version>
+
+        <min.mule.version>4.2.1</min.mule.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.mulesoft.connectivity</groupId>
+            <artifactId>rest-sdk-commons</artifactId>
+            <version>${rest.sdk.commons.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-slf4j-impl</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>${json.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mule.sdk</groupId>
+            <artifactId>mule-sdk-api</artifactId>
+            <version>0.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mule.module</groupId>
+            <artifactId>mule-java-module</artifactId>
+            <version>${java.module.version}</version>
+            <classifier>mule-plugin</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.modules</groupId>
+            <artifactId>mule-validation-module</artifactId>
+            <version>${validations.module.version}</version>
+            <classifier>mule-plugin</classifier>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.mule.runtime.plugins</groupId>
+                <artifactId>mule-extensions-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.mule.runtime.plugins</groupId>
+                <artifactId>mule-extensions-shade-plugin</artifactId>
+                <version>${muleExtensionsShadeVersion}</version>
+                <executions>
+                    <execution>
+                        <phase>post-integration-test</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <artifactSet>
+                        <includes combine.children="append">
+                            <include>com.mulesoft.connectivity:rest-sdk-commons</include>
+                        </includes>
+                    </artifactSet>
+                    <relocations>
+                        <relocation>
+                            <pattern>com.mulesoft.connectivity.rest.commons</pattern>
+                            <shadedPattern>com.mulesoft.connectivity.${shadePackage}.rest.commons</shadedPattern>
+                        </relocation>
+                    </relocations>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>${mavenResources.version}</version>
+                <executions>
+                    <execution>
+                        <id>copy-munit-resources</id>
+                        <phase>process-test-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${munit.output.directory}</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${munit.input.directory}</directory>
+                                    <filtering>true</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.mulesoft.munit</groupId>
+                <artifactId>munit-extensions-maven-plugin</artifactId>
+                <version>${munit.extensions.maven.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <phase>integration-test</phase>
+                    </execution>
+                </executions>
+                <configuration>
+                    <argLines>
+                        <argLine>
+                            -javaagent:${settings.localRepository}/org/jacoco/org.jacoco.agent/${jacoco.version}/org.jacoco.agent-${jacoco.version}-runtime.jar=destfile=${session.executionRootDirectory}/target/jacoco-munit.exec
+                        </argLine>
+                    </argLines>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.mulesoft.munit</groupId>
+                        <artifactId>munit-runner</artifactId>
+                        <version>${munit.version}</version>
+                        <classifier>mule-plugin</classifier>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.mulesoft.munit</groupId>
+                        <artifactId>munit-tools</artifactId>
+                        <version>${munit.version}</version>
+                        <classifier>mule-plugin</classifier>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.mulesoft.munit</groupId>
+                        <artifactId>mtf-tools</artifactId>
+                        <version>${mtf.tools.version}</version>
+                        <classifier>mule-plugin</classifier>
+                    </dependency>
+                </dependencies>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <configuration>
+                    <destFile>${session.executionRootDirectory}/target/jacoco-java.exec</destFile>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>merge</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>merge</goal>
+                        </goals>
+                        <configuration>
+                            <destFile>${session.executionRootDirectory}/target/jacoco.exec</destFile>
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.build.directory}</directory>
+                                    <includes>
+                                        <include>*.exec</include>
+                                    </includes>
+                                </fileSet>
+                            </fileSets>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+    <scm>
+        <connection>scm:git:git@github.com:mulesoft/mule4-amazon-lambda-connector.git</connection>
+        <developerConnection>scm:git:git@github.com:mulesoft/mule4-amazon-lambda-connector.git</developerConnection>
+        <url>https://github.com/mulesoft/mule4-amazon-lambda-connector</url>
+        <tag>mule4-amazon-lambda-connector-1.0.1</tag>
+    </scm>
+    <repositories>
+        <repository>
+            <id>mule-releases</id>
+            <name>Nexus Public Releases</name>
+            <url>https://repository.mulesoft.org/nexus/content/repositories/releases/</url>
+        </repository>
+    </repositories>
+</project>

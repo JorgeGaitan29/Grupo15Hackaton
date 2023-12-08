@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:sns="http://www.mulesoft.org/schema/mule/sns" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd http://www.mulesoft.org/schema/mule/sns http://www.mulesoft.org/schema/mule/sns/current/mule-sns.xsd">
+    <http:listener-config name="s-usuariossalesforce-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="s-usuariossalesforce-config" api="resource::9b19af13-9646-4d87-83a1-7dfd2965a5de:s-usuariossalesforce:1.0.5:raml:zip:s-usuariossalesforce.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="af1f210d-018b-4080-a0ce-f7c28cbd8392">
+        <salesforce:basic-connection username="${sfdc.username}" password="${sfdc.password}" securityToken="${sfdc.securityToken}" />
+    </salesforce:sfdc-config>
+    <configuration-properties doc:name="Configuration properties" doc:id="9b659469-435f-4d20-8845-3c9be979d40f" file="configuration/config.yaml" />
+    <sns:config name="Amazon_SNS_configuration" doc:name="Amazon SNS configuration" doc:id="5f03c4e5-fe6b-490a-b125-f0d0c3541431">
+        <sns:basic-connection accessKey="${SNS.AccesKey}" secretKey="${SNS.SecretKey}" sessionToken="${SNS.token}" testTopic="arn:aws:sns:us-east-1:774459592625:Sf-notifications" />
+    </sns:config>
+    <flow name="s-usuariossalesforce-main">
+        <http:listener config-ref="s-usuariossalesforce-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="s-usuariossalesforce-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST,VALIDATION:INVALID_BOOLEAN" enableNotifications="true" logException="true">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="s-usuariossalesforce-console">
+        <http:listener config-ref="s-usuariossalesforce-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="s-usuariossalesforce-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\usuarios:s-usuariossalesforce-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Bad request"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <salesforce:query doc:name="Query" doc:id="9172db13-1ddc-46df-b2a0-fdc4bc1553e1" config-ref="Salesforce_Config">
+            <salesforce:salesforce-query><![CDATA[SELECT name, phone, email__c
+FROM account
+WHERE type = null]]></salesforce:salesforce-query>
+        </salesforce:query>
+        <ee:transform doc:name="Transform Message" doc:id="84b5a0f5-7669-4119-aa7b-c31d603e3a88">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\usuarios\(nombre):s-usuariossalesforce-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="nombre">attributes.uriParams.'nombre'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <salesforce:query doc:name="Query" doc:id="8df84920-084d-449d-8380-1d3c1fb008ec" config-ref="Salesforce_Config">
+            <salesforce:salesforce-query><![CDATA[SELECT name, phone, email__c
+FROM account
+WHERE type = null AND name = ':data']]></salesforce:salesforce-query>
+            <salesforce:parameters><![CDATA[#[output application/json
+var data = payload
+---
+data :vars.nombre]]]></salesforce:parameters>
+        </salesforce:query>
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	correo_electronico: payload01.Email__c,
+	numero_telefono: payload01.Phone,
+	nombre: payload01.Name
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="post:\usuarios:application\json:s-usuariossalesforce-config">
+        <set-variable value="#[payload.correo_electronico]" doc:name="Set Variable" doc:id="df4fdca9-fe86-457d-b623-68b825afc505" variableName="email" />
+        <salesforce:create doc:name="Create" doc:id="109ca46f-876b-4dc6-a5fc-0e93ec60ef2c" config-ref="Salesforce_Config" type="Account">
+            <salesforce:records><![CDATA[#[output application/json
+---
+[{
+	Name: payload.nombre,
+	Phone: payload.numero_telefono as String,
+	Email__c: payload.correo_electronico
+}]]]]></salesforce:records>
+        </salesforce:create>
+        <validation:is-true doc:name="Validate Response" doc:id="160e7fed-43c8-4baa-85d9-61b50e8d94a5" expression="#[payload.successful == true]" message="#[&quot;No se ha podido crear tu cuenta&quot;]" />
+        <ee:transform doc:name="Transform Message" doc:id="01b2c252-b311-498e-93bd-4af229618820">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Usuario añadido"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <sns:subscribe protocol="EMAIL" doc:name="Subscribe" doc:id="771ab5b4-8bc3-4c83-9d6d-63a70ad99775" topicArn="arn:aws:sns:us-east-1:774459592625:Sf-notifications" config-ref="Amazon_SNS_configuration" endpoint="#[vars.email]" />
+        <sns:publish doc:name="Publish" doc:id="6bd1fb8e-ed2a-4314-8772-c565163d0ff9" config-ref="Amazon_SNS_configuration" topicArn="arn:aws:sns:us-east-1:774459592625:Sf-notifications">
+            <sns:message><![CDATA[#[%dw 2.0
+output application/json
+---
+"Te has dado de alta correctamente en la aplicación"]]]></sns:message>
+        </sns:publish>
+    </flow>
+</mule>
